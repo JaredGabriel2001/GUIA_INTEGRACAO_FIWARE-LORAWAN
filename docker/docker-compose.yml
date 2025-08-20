@@ -12,7 +12,12 @@ services:
     extends:
       file: docker-compose-dev.yml
       service: orion
-    command: -dbhost mongodb -port 1026 -logLevel INFO
+    command: -dbhost mongodb -port 1026 -logLevel INFO -prometheus -promPort 8888
+    ports:
+      - "1026:1026"
+      - "8888:8888"
+    networks:
+      - LoRaWAN
 
   iotagent-lora:
     depends_on:
@@ -100,6 +105,44 @@ services:
     - mosquitto
   networks:
     - LoRaWAN
+
+  #SERVIÇOS DE MONITORAMENTO
+
+  prometheus:
+    image: prom/prometheus:v2.37.0
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - LoRaWAN
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - LoRaWAN
+
+  mosquitto-exporter:
+    image: kamilbiela/mqtt-exporter:v1.0.0
+    container_name: mosquitto-exporter
+    restart: unless-stopped
+    environment:
+      - MQTT_ADDRESS=tcp://mosquitto:1883 
+    networks:
+      - LoRaWAN
 
     
 volumes:
