@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s # A cada 15 segundos, o Prometheus buscará os alvos
+
+scrape_configs:
+  # Alvo 1: O próprio Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Alvo 2: cAdvisor para métricas de hardware dos containers
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Alvo 3: Orion Context Broker
+  - job_name: 'orion'
+    static_configs:
+      - targets: ['orion:8888']
+
+  # Alvo 4: Mosquitto (via exporter)
+  - job_name: 'mosquitto'
+    static_configs:
+      - targets: ['mosquitto-exporter:9324'] # Porta padrão do exporter

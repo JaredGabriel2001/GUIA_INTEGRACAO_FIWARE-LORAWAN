@@ -1,21 +1,28 @@
-version: "3.7"
-
 services:
   mongodb:
-    extends:
-      file: docker-compose-dev.yml
-      service: mongodb
+    image: mongo:4.4
+    hostname: mongodb
+    ports:
+      - "27017:27017"
     volumes:
       - mongo_data_lora:/data/db
+    networks:
+      - LoRaWAN
   
   orion:
-    extends:
-      file: docker-compose-dev.yml
-      service: orion
-    command: -dbhost mongodb -port 1026 -logLevel INFO -prometheus -promPort 8888
+    image: fiware/orion:3.3.1
+    hostname: orion
+    depends_on:
+      - mongodb
     ports:
       - "1026:1026"
       - "8888:8888"
+    command: -dbhost mongodb -port 1026 -logLevel INFO 
+    environment:
+      - CB_HTTP_PORT=1026
+      - CB_LOG_LEVEL=INFO
+      - CB_PROMETHEUS_ENABLED=true
+      - CB_PROMETHEUS_PORT=8888
     networks:
       - LoRaWAN
 
@@ -35,8 +42,6 @@ services:
     image: postgres:latest
     hostname: postgres-db
     container_name: db-postgres
-    expose:
-        - "5432"
     ports:
         - "5432:5432"
     networks:
@@ -56,8 +61,6 @@ services:
         - LoRaWAN
     depends_on:
         - postgres-db
-    expose:
-        - "5080"
     ports:
         - "5055:5055"
         - "5080:5080"
@@ -66,14 +69,8 @@ services:
         - "CYGNUS_POSTGRESQL_PORT=5432"
         - "CYGNUS_POSTGRESQL_USER=postgres"
         - "CYGNUS_POSTGRESQL_PASS=password"
-        - "CYGNUS_POSTGRESQL_ENABLE_CACHE=true"
-        - "CYGNUS_POSTGRESQL_SERVICE_PORT=5055"
         - "CYGNUS_LOG_LEVEL=DEBUG"
-        - "CYGNUS_API_PORT=5080"
-        - "CYGNUS_SERVICE_PORT=5055"
     
-
-  
   grafana:
     image: grafana/grafana
     depends_on:
@@ -86,28 +83,31 @@ services:
       - LoRaWAN
     volumes:
       - grafana_data:/var/lib/grafana
+
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:1.6.14
+    hostname: mosquitto
     container_name: mosquitto
-    restart: unless-stopped
+    expose:
+      - "1883"
+      - "9001"
     ports:
       - "1883:1883"
-      - "9001:9001"   
+      - "9001:9001"
     volumes:
-      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
     networks:
       - LoRaWAN
+
+
   simulador:
-  build: ./Simular_sensores
-  depends_on:
-    - mosquitto
-  networks:
-    - LoRaWAN
+    build: ./Simular_sensores
+    depends_on:
+      - mosquitto
+    networks:
+      - LoRaWAN
 
   #SERVIÇOS DE MONITORAMENTO
-
   prometheus:
     image: prom/prometheus:v2.37.0
     container_name: prometheus
@@ -136,21 +136,26 @@ services:
       - LoRaWAN
 
   mosquitto-exporter:
-    image: kamilbiela/mqtt-exporter:v1.0.0
-    container_name: mosquitto-exporter
-    restart: unless-stopped
+    image: torilabs/mqtt-prometheus-exporter:latest
+    hostname: mosquitto-exporter
+    depends_on:
+      - mosquitto
     environment:
-      - MQTT_ADDRESS=tcp://mosquitto:1883 
+      - MQTT_ADDRESS=tcp://mosquitto:1883
+      - MQTT_USERNAME= # se tiver usuário
+      - MQTT_PASSWORD= # se tiver senha
+      - PROMETHEUS_PORT=9234
+      - MQTT_CLIENT_ID=prometheus-exporter
+    ports:
+      - "9234:9234"   
     networks:
       - LoRaWAN
 
-    
+
 volumes:
   mongo_data_lora: 
-  lora_device_data:
   postgres_data:
   grafana_data: 
-
 
 networks:
   LoRaWAN: {}
