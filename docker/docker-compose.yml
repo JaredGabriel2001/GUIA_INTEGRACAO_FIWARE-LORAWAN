@@ -99,13 +99,15 @@ services:
     networks:
       - LoRaWAN
 
-
-  simulador:
-    build: ./Simular_sensores
+  #Simulador dos sensores mosquitto
+  simular_sensores:
+    image: jaredgabriel/simular_sensores:latest
+    container_name: Simular_sensores
     depends_on:
       - mosquitto
     networks:
       - LoRaWAN
+    restart: always
 
   #SERVIÇOS DE MONITORAMENTO
   prometheus:
